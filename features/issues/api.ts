@@ -4,6 +4,7 @@ import type {
   Issue,
   CreateIssuePayload,
   IssuePriority,
+  UpdateIssuePayload
 } from './types';
 
 import type { IssueStatus } from './types';
@@ -130,6 +131,36 @@ export async function updateIssueStatus(
   await apiPatch<void, { status: IssueStatus }>(
     `/issues/${issueId}/status`,
     { status },
+    token,
+  );
+}
+
+
+// Get a single issue by ID (for editing, etc.)
+export async function getIssueById(
+  token: string | null,
+  issueId: string,
+): Promise<Issue> {
+  if (!token) {
+    throw new Error('You must be logged in to view an issue.');
+  }
+
+  return apiGet<Issue>(`/issues/${issueId}`, token);
+}
+
+// Update an issue (citizen edit)
+export async function updateIssue(
+  token: string | null,
+  issueId: string,
+  data: UpdateIssuePayload,
+): Promise<Issue> {
+  if (!token) {
+    throw new Error('You must be logged in to update an issue.');
+  }
+
+  return apiPatch<Issue, UpdateIssuePayload>(
+    `/issues/${issueId}`,
+    data,
     token,
   );
 }

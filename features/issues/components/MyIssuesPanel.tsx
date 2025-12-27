@@ -1,217 +1,168 @@
 // civiclink-web/features/issues/components/MyIssuesPanel.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
-import { getMyIssues } from '../api';
-import type { Issue } from '../types';
+import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { useAuth } from '@/features/auth/context/AuthContext';
+import { getMyIssues } from '@/features/issues/api';
+import type { Issue } from '@/features/issues/types';
 
-type MyIssuesPanelProps = {
-  token: string | null;
-};
+export function MyIssuesPanel() {
+  const { token, user } = useAuth();
 
-export function MyIssuesPanel({ token }: MyIssuesPanelProps) {
   const [issues, setIssues] = useState<Issue[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
-
-  const selectedIssue =
-    issues.find(issue => issue.id === selectedIssueId) ?? null;
 
   useEffect(() => {
-    async function load() {
-      if (!token) {
-        setIssues([]);
-        setSelectedIssueId(null);
-        return;
-      }
+    if (!token || !user) return;
 
+    let cancelled = false;
+
+    async function load() {
       setLoading(true);
       setError(null);
 
       try {
-        const data = await getMyIssues(token);
-        setIssues(data);
-        if (data.length > 0) {
-          setSelectedIssueId(data[0].id);
-        } else {
-          setSelectedIssueId(null);
-        }
+        // Your getMyIssues takes ONLY (token)
+        const result = await getMyIssues(token);
+
+        if (cancelled) return;
+
+        setIssues(result);
       } catch (err: any) {
-        setError(err.message || 'Failed to load issues');
-        setIssues([]);
-        setSelectedIssueId(null);
+        if (!cancelled) {
+          setError(err.message || 'Failed to load your issues.');
+          setIssues([]);
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     }
 
     load();
-  }, [token]);
 
-  if (!token) {
+    return () => {
+      cancelled = true;
+    };
+  }, [token, user]);
+
+  if (!token || !user) {
     return (
-      <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4 text-sm text-slate-400">
-        Sign in to view your reported issues.
-      </div>
+      <p className="text-sm text-slate-400">
+        You must be signed in as a citizen to see your issues.
+      </p>
     );
   }
 
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4">
-      <div className="mb-4 flex items-center justify-between gap-3">
+      <div className="flex items-center justify-between mb-3">
         <div>
           <h2 className="text-sm font-semibold text-slate-100">
             My issues
           </h2>
           <p className="text-[11px] text-slate-400">
-            Browse and inspect all issues you have reported.
+            Issues you have reported to the city.
           </p>
         </div>
-
-        <button
-          type="button"
-          onClick={async () => {
-            // simple refresh
-            if (!token) return;
-            setLoading(true);
-            setError(null);
-            try {
-              const data = await getMyIssues(token);
-              setIssues(data);
-              if (data.length > 0) {
-                setSelectedIssueId(data[0].id);
-              } else {
-                setSelectedIssueId(null);
-              }
-            } catch (err: any) {
-              setError(err.message || 'Failed to refresh issues');
-            } finally {
-              setLoading(false);
-            }
-          }}
-          className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-[11px] text-slate-200 hover:border-emerald-400 hover:text-emerald-300"
-          disabled={loading}
-        >
-          {loading ? 'Refreshing…' : 'Refresh'}
-        </button>
+        <div className="text-[11px] text-slate-400">
+          {loading
+            ? 'Loading…'
+            : issues.length > 0
+            ? `Total: ${issues.length}`
+            : 'No issues reported yet'}
+        </div>
       </div>
 
       {error && (
-        <p className="text-xs text-amber-400 mb-3">
+        <p className="text-xs text-amber-400 mb-2">
           {error}
         </p>
       )}
 
-      {issues.length === 0 && !loading && !error && (
+      {!loading && issues.length === 0 && !error && (
         <p className="text-xs text-slate-500">
-          You haven&apos;t reported any issues yet.
+          You haven’t reported any issues yet.
         </p>
       )}
 
       {issues.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1.3fr)_minmax(0,1.7fr)] gap-4">
-          {/* Left: list */}
-          <div className="max-h-80 overflow-y-auto rounded-xl border border-slate-800 bg-slate-950/60">
-            <ul className="divide-y divide-slate-800 text-[11px]">
+        <div className="max-h-80 overflow-y-auto rounded-xl border border-slate-800 bg-slate-950/60">
+          <table className="w-full border-collapse text-[11px]">
+            <thead className="bg-slate-900 sticky top-0 z-10">
+              <tr>
+                <th className="text-left px-3 py-2 font-medium text-slate-300">
+                  Title
+                </th>
+                <th className="text-left px-3 py-2 font-medium text-slate-300">
+                  Status
+                </th>
+                <th className="text-left px-3 py-2 font-medium text-slate-300">
+                  Priority
+                </th>
+                <th className="text-left px-3 py-2 font-medium text-slate-300">
+                  Created
+                </th>
+                <th className="text-left px-3 py-2 font-medium text-slate-300">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody>
               {issues.map(issue => {
-                const isActive = issue.id === selectedIssueId;
+                const canEdit = issue.status === 'OPEN';
+
                 return (
-                  <li
+                  <tr
                     key={issue.id}
-                    className={[
-                      'cursor-pointer px-3 py-2 hover:bg-slate-900/80',
-                      isActive ? 'bg-slate-900/90 border-l-2 border-emerald-500' : '',
-                    ].join(' ')}
-                    onClick={() => setSelectedIssueId(issue.id)}
+                    className="border-t border-slate-800 hover:bg-slate-900/70"
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <div className="font-medium text-slate-100">
-                          {issue.title}
-                        </div>
-                        <div className="text-[10px] text-slate-400 line-clamp-2">
-                          {issue.description}
-                        </div>
+                    <td className="px-3 py-2 align-top">
+                      <div className="font-medium text-slate-100">
+                        {issue.title}
                       </div>
-                      <span className="inline-flex items-center rounded-full border border-slate-700 bg-slate-950 px-2 py-0.5 text-[9px] uppercase tracking-wide text-slate-300">
+                      <div className="text-[10px] text-slate-400">
+                        {issue.description}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 align-top">
+                      <span className="inline-flex items-center rounded-full border border-slate-700 bg-slate-950 px-2 py-0.5 text-[10px] uppercase tracking-wide text-slate-300">
                         {issue.status}
                       </span>
-                    </div>
-                    <div className="mt-1 flex items-center justify-between text-[10px] text-slate-500">
-                      <span>Priority: {issue.priority}</span>
-                      <span>
-                        {new Date(issue.createdAt).toLocaleDateString()}
+                    </td>
+                    <td className="px-3 py-2 align-top">
+                      <span className="inline-flex items-center rounded-full border border-slate-700 bg-slate-950 px-2 py-0.5 text-[10px] uppercase tracking-wide text-slate-300">
+                        {issue.priority}
                       </span>
-                    </div>
-                  </li>
+                    </td>
+                    <td className="px-3 py-2 align-top text-slate-400">
+                      {new Date(issue.createdAt).toLocaleString()}
+                    </td>
+                    <td className="px-3 py-2 align-top">
+                      <div className="flex items-center gap-2">
+                        {canEdit && (
+                          <Link
+                            href={`/citizen/edit/${issue.id}`}
+                            className="text-[10px] text-emerald-300 hover:text-emerald-200 underline"
+                          >
+                            Edit
+                          </Link>
+                        )}
+                        {!canEdit && (
+                          <span className="text-[10px] text-slate-500">
+                            Locked
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
                 );
               })}
-            </ul>
-          </div>
-
-          {/* Right: detail */}
-          <div className="rounded-xl border border-slate-800 bg-slate-950/80 p-4 text-[11px]">
-            {selectedIssue ? (
-              <>
-                <div className="flex items-start justify-between gap-3 mb-2">
-                  <div>
-                    <h3 className="text-sm font-semibold text-slate-100">
-                      {selectedIssue.title}
-                    </h3>
-                    <p className="text-[11px] text-slate-400">
-                      Created:{' '}
-                      {new Date(
-                        selectedIssue.createdAt,
-                      ).toLocaleString()}
-                    </p>
-                  </div>
-                  <div className="flex flex-col items-end gap-1">
-                    <span className="inline-flex items-center rounded-full border border-slate-700 bg-slate-950 px-2 py-0.5 text-[9px] uppercase tracking-wide text-slate-300">
-                      {selectedIssue.status}
-                    </span>
-                    <span className="inline-flex items-center rounded-full border border-slate-700 bg-slate-950 px-2 py-0.5 text-[9px] uppercase tracking-wide text-slate-300">
-                      Priority: {selectedIssue.priority}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="mb-3">
-                  <div className="text-[11px] font-medium text-slate-300 mb-1">
-                    Description
-                  </div>
-                  <p className="text-[11px] text-slate-200 whitespace-pre-line">
-                    {selectedIssue.description}
-                  </p>
-                </div>
-
-                {(selectedIssue.latitude != null ||
-                  selectedIssue.longitude != null) && (
-                  <div className="mb-3">
-                    <div className="text-[11px] font-medium text-slate-300 mb-1">
-                      Location
-                    </div>
-                    <p className="text-[11px] text-slate-200">
-                      Latitude: {selectedIssue.latitude ?? '—'}, Longitude:{' '}
-                      {selectedIssue.longitude ?? '—'}
-                    </p>
-                    <p className="text-[10px] text-slate-500 mt-1">
-                      (Later you can integrate a map preview here.)
-                    </p>
-                  </div>
-                )}
-
-                <div className="mt-4 text-[10px] text-slate-500">
-                  This detail view is a placeholder for future enhancements
-                  like status history, comments, and attachments.
-                </div>
-              </>
-            ) : (
-              <p className="text-xs text-slate-500">
-                Select an issue from the list to see its details.
-              </p>
-            )}
-          </div>
+            </tbody>
+          </table>
         </div>
       )}
     </div>

@@ -21,3 +21,11 @@ export type CreateIssuePayload = {
   latitude: number;
   longitude: number;
 };
+
+export type UpdateIssuePayload = {
+  title?: string;
+  description?: string;
+  priority?: IssuePriority;
+  latitude?: number;
+  longitude?: number;
+};

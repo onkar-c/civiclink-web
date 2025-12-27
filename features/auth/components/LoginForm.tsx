@@ -6,8 +6,8 @@ import { useAuth } from '../context/AuthContext';
 
 export function LoginForm() {
   const { loginWithCredentials, initializing } = useAuth();
-  const [email, setEmail] = useState('admin@civiclink.local');
-  const [password, setPassword] = useState('Admin123!');
+  const [email, setEmail] = useState('test@example.com');
+  const [password, setPassword] = useState('secret123');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

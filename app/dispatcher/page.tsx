@@ -5,8 +5,18 @@ import { useAuth } from '@/features/auth/context/AuthContext';
 import { DispatcherIssuesPanel } from '@/features/issues/components/DispatcherIssuesPanel';
 
 export default function DispatcherDashboardPage() {
-  const {token, user } = useAuth();
+  const {token, user, initializing } = useAuth();
 
+
+  if (initializing) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-slate-100">
+        <div className="text-sm text-slate-400">
+          Loading CivicLink…
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="space-y-4">
       <header className="flex items-center justify-between gap-3">
